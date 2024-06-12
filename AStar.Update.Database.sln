@@ -1,0 +1,42 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.34928.147
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AStar.Update.Database.WorkerService", "src\AStar.Update.Database.WorkerService\AStar.Update.Database.WorkerService.csproj", "{D90E80AC-5106-4089-AD76-7E03A070C484}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{98F38377-33FD-4CE3-8402-D8D99C6D534B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EF66B156-5FA3-406C-9D8C-CE307284F2D1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "unit", "unit", "{3EB59367-37EE-485C-8BF3-D155A7643993}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AStar.Update.Database.WorkerService.Unit.Tests", "tests\unit\AStar.Update.Database.WorkerService.Unit.Tests\AStar.Update.Database.WorkerService.Unit.Tests.csproj", "{ED22324D-06F6-40A8-8661-058615F68372}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D90E80AC-5106-4089-AD76-7E03A070C484}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D90E80AC-5106-4089-AD76-7E03A070C484}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D90E80AC-5106-4089-AD76-7E03A070C484}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D90E80AC-5106-4089-AD76-7E03A070C484}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED22324D-06F6-40A8-8661-058615F68372}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED22324D-06F6-40A8-8661-058615F68372}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED22324D-06F6-40A8-8661-058615F68372}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED22324D-06F6-40A8-8661-058615F68372}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D90E80AC-5106-4089-AD76-7E03A070C484} = {98F38377-33FD-4CE3-8402-D8D99C6D534B}
+		{3EB59367-37EE-485C-8BF3-D155A7643993} = {EF66B156-5FA3-406C-9D8C-CE307284F2D1}
+		{ED22324D-06F6-40A8-8661-058615F68372} = {3EB59367-37EE-485C-8BF3-D155A7643993}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4F73B7AE-B01F-4D55-A480-4BBCFA7083D9}
+	EndGlobalSection
+EndGlobal
