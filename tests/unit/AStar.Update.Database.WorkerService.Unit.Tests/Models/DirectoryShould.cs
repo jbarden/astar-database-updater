@@ -4,5 +4,5 @@ public class DirectoryShould
 {
     [Fact]
     public void ReturnTheExpectedToString()
-        => new Directory("","").ToString().Should().Be(@"{""Old"":"""",""New"":""""}");
+        => new Directory("", "").ToString().Should().Be(@"{""Old"":"""",""New"":""""}");
 }

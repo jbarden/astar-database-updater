@@ -2,7 +2,6 @@
 using AStar.Infrastructure.Data;
 using AStar.Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
-using Serilog.Sinks.File;
 using SkiaSharp;
 
 namespace AStar.Update.Database.WorkerService.Services;
@@ -12,12 +11,13 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
     public async Task DeleteFilesMarkedForSoftDeletionAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Starting removal of files marked for soft deletion");
-        var fileAccessDetails = context.FileAccessDetails.Where(fileAccess => fileAccess.SoftDeletePending);
-        logger.LogInformation("There are {Files} files marked for soft deletion", await fileAccessDetails.CountAsync(cancellationToken));
+        var fileAccessDetails = await context.FileAccessDetails.Where(fileAccess => fileAccess.SoftDeletePending).ToListAsync(cancellationToken);
+        logger.LogInformation("There are {Files} files marked for soft deletion", fileAccessDetails.Count);
 
         foreach (var fileAccessDetail in fileAccessDetails)
         {
-            var fileDetail = await context.Files.SingleAsync(file => file.Id == fileAccessDetail.Id, cancellationToken);
+            var fileDetail = await context.Files.SingleAsync(file => file.FileAccessDetail.Id == fileAccessDetail.Id, cancellationToken);
+            logger.LogInformation("Soft-deleting file: {FileName} from {DirectoryName}", fileDetail.FileName, fileDetail.DirectoryName);
             DeleteFileIfItExists(fileSystem, fileDetail);
 
             fileAccessDetail.SoftDeletePending = false;
@@ -31,13 +31,15 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
     public async Task DeleteFilesMarkedForHardDeletionAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Starting removal of files marked for hard deletion");
-        var fileAccessDetails = context.FileAccessDetails.Where(fileAccess => fileAccess.HardDeletePending);
-        logger.LogInformation("There are {Files} files marked for hard deletion", await fileAccessDetails.CountAsync(cancellationToken));
+        var fileAccessDetails = await context.FileAccessDetails.Where(fileAccess => fileAccess.HardDeletePending).ToListAsync(cancellationToken);
+        logger.LogInformation("There are {Files} files marked for hard deletion", fileAccessDetails.Count);
 
         foreach (var fileAccessDetail in fileAccessDetails)
         {
-            var fileDetail = await context.Files.SingleAsync(file => file.Id == fileAccessDetail.Id, cancellationToken);
+            var fileDetail = await context.Files.SingleAsync(file => file.FileAccessDetail.Id == fileAccessDetail.Id, cancellationToken);
+            logger.LogInformation("Hard-deleting file: {FileName} from {DirectoryName}", fileDetail.FileName, fileDetail.DirectoryName);
             DeleteFileIfItExists(fileSystem, fileDetail);
+
             _ = context.Files.Remove(fileDetail);
             _ = context.FileAccessDetails.Remove(fileAccessDetail);
         }
@@ -65,8 +67,6 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
     public async Task ProcessNewFiles(IEnumerable<string> files, CancellationToken stoppingToken)
     {
         var counter = 0;
-        var id = await context.Files.MaxAsync(file => file.Id, stoppingToken);
-        id++;
         var filesInDb = context.Files.Select(file => Path.Combine(file.DirectoryName, file.FileName));
         var notInTheDatabase = files.Except(filesInDb).ToList();
         foreach (var file in notInTheDatabase)
@@ -82,11 +82,10 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
             var fileName = file[++lastIndexOf..];
             if (!await context.Files.AnyAsync(file => file.FileName == fileName && file.DirectoryName == directoryName, stoppingToken))
             {
-                id++;
-                AddNewFile(file, id);
+                AddNewFile(file);
                 counter++;
 
-                if (counter == 20)
+                if (counter >= 20)
                 {
                     counter = 0;
                     await SaveChangesSafely(stoppingToken);
@@ -151,6 +150,27 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
         await SaveChangesSafely(stoppingToken);
     }
 
+    public async Task DeleteFilesPreviouslyMarkedDeletedAsync(CancellationToken stoppingToken)
+    {
+        logger.LogInformation("Starting removal of files previously marked as deleted");
+        var fileAccessDetails = await context.FileAccessDetails.Where(fileAccess => fileAccess.SoftDeleted).ToListAsync(stoppingToken);
+        logger.LogInformation("There are {Files} files previously marked as deleted", fileAccessDetails.Count);
+
+        foreach (var fileAccessDetail in fileAccessDetails)
+        {
+            var fileDetail = await context.Files.SingleAsync(file => file.FileAccessDetail.Id == fileAccessDetail.Id, stoppingToken);
+            logger.LogInformation("Deleting file: {FileName} from {DirectoryName}", fileDetail.FileName, fileDetail.DirectoryName);
+            DeleteFileIfItExists(fileSystem, fileDetail);
+
+            fileAccessDetail.SoftDeletePending = false;
+            fileAccessDetail.HardDeletePending = false;
+            fileAccessDetail.SoftDeleted = true;
+        }
+
+        await SaveChangesSafely(stoppingToken);
+        logger.LogInformation("Completed removal of files previously marked as deleted");
+    }
+
     private async Task UpdateExistingFile(string directoryName, string fileName, FileDetail fileFromDatabase, CancellationToken stoppingToken)
     {
         foreach (var file in context.Files.Where(file => file.FileName == fileName))
@@ -160,11 +180,8 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
 
         await SaveChangesSafely(stoppingToken);
 
-        var fileId = (await context.Files.MaxAsync(f => f.Id, stoppingToken));
-
         var updatedFile = new FileDetail
         {
-            Id = ++fileId,
             DirectoryName = directoryName,
             Height = fileFromDatabase.Height,
             Width = fileFromDatabase.Width,
@@ -172,7 +189,6 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
             FileSize = fileFromDatabase.FileSize,
             FileAccessDetail = new FileAccessDetail
             {
-                Id = fileId,
                 SoftDeleted = false,
                 SoftDeletePending = false,
                 DetailsLastUpdated = DateTime.UtcNow
@@ -201,14 +217,13 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
         }
     }
 
-    private void AddNewFile(string file, int id)
+    private void AddNewFile(string file)
     {
         try
         {
             var fileInfo = fileSystem.FileInfo.New(file);
             var fileDetail = new FileDetail()
             {
-                Id = id,
                 FileName = fileInfo.Name,
                 DirectoryName = fileInfo.DirectoryName!,
                 FileSize = fileInfo.Length
@@ -232,8 +247,7 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
             {
                 SoftDeleted = false,
                 SoftDeletePending = false,
-                DetailsLastUpdated = DateTime.UtcNow,
-                Id = id
+                DetailsLastUpdated = DateTime.UtcNow
             };
 
             fileDetail.FileAccessDetail = fileAccessDetail;

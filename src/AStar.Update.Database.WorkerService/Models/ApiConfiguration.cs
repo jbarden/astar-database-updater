@@ -16,4 +16,3 @@ public class ApiConfiguration
 
     public override string ToString() => JsonSerializer.Serialize(this);
 }
-

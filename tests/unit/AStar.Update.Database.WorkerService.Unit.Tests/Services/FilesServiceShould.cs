@@ -29,7 +29,7 @@ public class FilesServiceShould
     [Fact]
     public async Task MarkAllSoftDeletePendingAsDeletedOnceComplete()
     {
-        var f=context.FileAccessDetails.Where(fileAccessDetail => fileAccessDetail.SoftDeletePending);
+        var f = context.FileAccessDetails.Where(fileAccessDetail => fileAccessDetail.SoftDeletePending);
         context.FileAccessDetails.Count(fileAccessDetail => fileAccessDetail.SoftDeletePending).Should().BeGreaterThan(0);
 
         await sut.DeleteFilesMarkedForSoftDeletionAsync(CancellationToken.None);
@@ -80,13 +80,13 @@ public class FilesServiceShould
 
         using var scope = new AssertionScope();
         var file1 = context.Files.OrderBy(file => file.Id).Last(file => file.FileName == ".editorconfig2" && file.DirectoryName == @"c:");
-        file1.Id.Should().Be(originalMaxId + 1);
+        file1.Id.Should().NotBe(originalMaxId);
         context.FileAccessDetails.Count(fileAccessDetail => fileAccessDetail.Id == file1.Id).Should().Be(1);
         var file2 = context.Files.OrderBy(file => file.Id).Last(file => file.FileName == "9.JPG" && file.DirectoryName == @"c:\demo");
-        file2.Id.Should().Be(originalMaxId + 2);
+        file2.Id.Should().NotBe(originalMaxId);
         context.FileAccessDetails.Count(fileAccessDetail => fileAccessDetail.Id == file2.Id).Should().Be(1);
         var file3 = context.Files.OrderBy(file => file.Id).Last(file => file.FileName == "A-0005.JPG" && file.DirectoryName == @"c:\demo");
-        file3.Id.Should().Be(originalMaxId + 3);
+        file3.Id.Should().NotBe(originalMaxId);
         context.FileAccessDetails.Count(fileAccessDetail => fileAccessDetail.Id == file3.Id).Should().Be(1);
     }
 
