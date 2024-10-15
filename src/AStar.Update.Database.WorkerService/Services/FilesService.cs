@@ -85,13 +85,11 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
                 AddNewFile(file);
                 counter++;
 
-                if (counter >= 20)
+                if (counter >= 100)
                 {
                     counter = 0;
                     await SaveChangesSafely(stoppingToken);
-                    logger.LogInformation("Updating the database.");
-
-                    logger.LogInformation("File {FileName} has been added to the database.", file);
+                    logger.LogInformation("Updating the database. File {FileName} has been added to the database.", file);
                 }
             }
         }
@@ -148,27 +146,6 @@ public class FilesService(FilesContext context, IFileSystem fileSystem, ILogger<
         }
 
         await SaveChangesSafely(stoppingToken);
-    }
-
-    public async Task DeleteFilesPreviouslyMarkedDeletedAsync(CancellationToken stoppingToken)
-    {
-        logger.LogInformation("Starting removal of files previously marked as deleted");
-        var fileAccessDetails = await context.FileAccessDetails.Where(fileAccess => fileAccess.SoftDeleted).ToListAsync(stoppingToken);
-        logger.LogInformation("There are {Files} files previously marked as deleted", fileAccessDetails.Count);
-
-        foreach (var fileAccessDetail in fileAccessDetails)
-        {
-            var fileDetail = await context.Files.SingleAsync(file => file.FileAccessDetail.Id == fileAccessDetail.Id, stoppingToken);
-            logger.LogInformation("Deleting file: {FileName} from {DirectoryName}", fileDetail.FileName, fileDetail.DirectoryName);
-            DeleteFileIfItExists(fileSystem, fileDetail);
-
-            fileAccessDetail.SoftDeletePending = false;
-            fileAccessDetail.HardDeletePending = false;
-            fileAccessDetail.SoftDeleted = true;
-        }
-
-        await SaveChangesSafely(stoppingToken);
-        logger.LogInformation("Completed removal of files previously marked as deleted");
     }
 
     private async Task UpdateExistingFile(string directoryName, string fileName, FileDetail fileFromDatabase, CancellationToken stoppingToken)
