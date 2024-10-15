@@ -1,30 +1,18 @@
 ﻿using System.Text.Json;
 using AStar.Infrastructure.Data;
 using AStar.Infrastructure.Models;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 
 namespace AStar.Update.Database.WorkerService.Fixtures;
 
 public class MockFilesContext : IDisposable
 {
-    private readonly SqliteConnection connection;
-    private readonly DbContextOptions<FilesContext> contextOptions;
     private bool disposedValue;
+    private readonly ConnectionString connectionString = new() { Value = "Filename=:memory:" };
+    private readonly FilesContext context;
 
     public MockFilesContext()
     {
-        // Create and open a connection. This creates the SQLite in-memory database, which will persist until the connection is closed at the end of the test (see Dispose below).
-        connection = new SqliteConnection("Filename=:memory:");
-        connection.Open();
-
-        // These options will be used by the context instances in this test suite, including the connection opened above.
-        contextOptions = new DbContextOptionsBuilder<FilesContext>()
-            .UseSqlite(connection)
-            .Options;
-
-        // Create the schema and seed some data
-        using var context = new FilesContext(contextOptions, new());
+        context = new FilesContext(connectionString, new() { InMemory = true });
 
         _ = context.Database.EnsureCreated();
 
@@ -32,7 +20,7 @@ public class MockFilesContext : IDisposable
         _ = context.SaveChanges();
     }
 
-    public FilesContext CreateContext() => new(contextOptions, new());
+    public FilesContext Context() => context;
 
     public void Dispose()
     {
@@ -47,7 +35,7 @@ public class MockFilesContext : IDisposable
         {
             if (disposing)
             {
-                connection.Dispose();
+                context.Dispose();
             }
 
             disposedValue = true;

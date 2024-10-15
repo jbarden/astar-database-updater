@@ -1,43 +1,35 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using AStar.FilesApi.Client.SDK.FilesApi;
 using AStar.FilesApi.Client.SDK.Models;
 using AStar.Infrastructure.Data;
 using AStar.Update.Database.WorkerService.Models;
+using AStar.Update.Database.WorkerService.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace AStar.Update.Database.WorkerService;
 
 [ExcludeFromCodeCoverage]
-public class MoveFiles(IOptions<DirectoryChanges> directories, FilesApiClient filesApiClient, ILogger<UpdateDatabaseForAllFiles> logger) : BackgroundService
+public class MoveFiles(FilesContext context, IOptions<DirectoryChanges> directories, FilesApiClient filesApiClient, ILogger<UpdateDatabaseForAllFiles> logger) : BackgroundService
 {
-    private FilesContext Context
-        => new(new DbContextOptionsBuilder<FilesContext>().UseSqlite(ServiceConstants.SqliteConnectionString).Options, new());
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("MoveFiles started at: {RunTime}", DateTimeOffset.Now);
         while (!stoppingToken.IsCancellationRequested)
         {
+            const string endTime = "3:00 AM";
             try
             {
                 logger.LogInformation("MoveFiles started at: {RunTime}", DateTimeOffset.Now);
-                var startTime = DateTime.UtcNow;
-                var endTime = "3:00 AM";
+                var intialRunDelay = TimeDelay.CalculateDelayToNextRun(endTime);
 
-                var duration = DateTime.Parse(endTime, CultureInfo.CurrentCulture).Subtract(startTime);
-                if (duration < TimeSpan.Zero)
-                {
-                    duration = duration.Add(TimeSpan.FromHours(24));
-                }
-
-                logger.LogInformation("MoveFiles Waiting for: {RunTime} hours before updating the marked to move files .", duration);
-                await Task.Delay(duration, stoppingToken);
+                logger.LogInformation("MoveFiles Waiting for: {DelayToNextRun} hours before updating the marked to move files .", intialRunDelay);
+                await Task.Delay(intialRunDelay, stoppingToken);
 
                 await MoveFilesToTheirNewHomeAsync();
-                logger.LogInformation("MoveFiles Waiting for: 24 hours before updating the marked to move files again.");
-                await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
+                var delayToNextRun = TimeDelay.CalculateDelayToNextRun(endTime);
+                logger.LogInformation("MoveFiles Waiting for: {DelayToNextRun} hours before updating the marked to move files again.", delayToNextRun);
+                await Task.Delay(delayToNextRun, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -48,10 +40,15 @@ public class MoveFiles(IOptions<DirectoryChanges> directories, FilesApiClient fi
 
     private async Task MoveFilesToTheirNewHomeAsync()
     {
+        if (UpdateDatabaseForAllFiles.GlobalUpdateIsRunning)
+        {
+            return;
+        }
+
         foreach (var directory in directories.Value.Directories)
         {
             logger.LogInformation("Getting the files from the database that contain the {DirectoryName}.", directory);
-            var filesToMove = Context.FileAccessDetails.Where(file => !file.SoftDeleted);
+            var filesToMove = context.Files.Include(x => x.FileAccessDetail).Where(file => !file.FileAccessDetail.SoftDeleted && file.DirectoryName.Contains(directory.Old));
 
             foreach (var fileToMove in filesToMove)
             {

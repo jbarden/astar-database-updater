@@ -6,7 +6,7 @@ public class FilesContextFixture : IDisposable
 {
     private bool disposedValue;
 
-    public FilesContextFixture() => SUT = new MockFilesContext().CreateContext();
+    public FilesContextFixture() => SUT = new MockFilesContext().Context();
 
     public FilesContext SUT { get; }
 

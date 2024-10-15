@@ -13,8 +13,15 @@ public class DeleteMarkedFiles(FilesService filesService, TimeProvider timeProvi
         {
             try
             {
-                await filesService.DeleteFilesMarkedForSoftDeletionAsync(stoppingToken);
+                if (UpdateDatabaseForAllFiles.GlobalUpdateIsRunning)
+                {
+                    logger.LogInformation("Waiting for an hour before restarting at: {RunTime} (Local Time)", timeProvider.GetLocalNow().AddHours(1));
+                    await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+                    return;
+                }
+
                 await filesService.DeleteFilesMarkedForHardDeletionAsync(stoppingToken);
+                await filesService.DeleteFilesMarkedForSoftDeletionAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -22,7 +29,7 @@ public class DeleteMarkedFiles(FilesService filesService, TimeProvider timeProvi
             }
 
             logger.LogInformation("Waiting for an hour before restarting at: {RunTime} (Local Time)", timeProvider.GetLocalNow().AddHours(1));
-            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
         }
     }
 }
